@@ -58,20 +58,26 @@ def get_genai_client(api_key: Optional[str] = None) -> genai.Client:
 
 REASONER_MODEL_CANDIDATES = [
     "gemini-3.6-flash",
+    "gemini-3.7-flash",
     "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-flash-latest",
     "gemini-3-flash-preview",
     os.getenv("LLM_REASONER_MODEL", "gemini-3.6-flash"),
-    "gemini-2.5-flash",
-    "gemini-3.1-pro-preview",
-    "gemini-2.5-pro"
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
 ]
 
 FAST_MODEL_CANDIDATES = [
     "gemini-3.6-flash",
+    "gemini-3.7-flash",
     "gemini-3.8-flash",
+    "gemini-3.5-flash",
+    "gemini-flash-latest",
     "gemini-3-flash-preview",
     os.getenv("LLM_FAST_MODEL", "gemini-3.6-flash"),
-    "gemini-2.5-flash"
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
 ]
 
 
@@ -83,8 +89,8 @@ def generate_content_with_fallback(
 ):
     """
     Tries candidate models across the rotating pool of Gemini API keys.
-    If a key hits 429 quota exhaustion or rate limits, it seamlessly rotates to the next key.
-    If a model returns 404 (deprecated/unsupported on that tier), it falls back to the next candidate model.
+    If a model returns 503 (high demand) or 404, it immediately tries alternative Flash models.
+    If an API key hits 429 quota exhaustion or 403 suspension, it seamlessly rotates to the next key in the pool.
     """
     global _current_key_index
     keys = get_all_api_keys()
@@ -112,13 +118,14 @@ def generate_content_with_fallback(
             except Exception as e:
                 err_msg = str(e)
                 last_exc = e
-                # Quota / rate limit / unavailable hit -> rotate key immediately
-                if any(term in err_msg for term in ["429", "RESOURCE_EXHAUSTED", "quota", "403", "PERMISSION_DENIED", "SUSPENDED", "503", "UNAVAILABLE"]):
-                    print(f"[WARN] Key #{k_idx} ({active_key[:10]}...) error on {model_name} ({err_msg[:40]}...). Rotating to next key in pool...")
-                    break
-                elif "404" in err_msg or "NOT_FOUND" in err_msg:
-                    # Model not found on this tier, try next model candidate
+                # Model overloaded (503) or not found (404) -> try next candidate model with same key!
+                if any(term in err_msg for term in ["503", "UNAVAILABLE", "high demand", "overloaded", "404", "NOT_FOUND"]):
+                    print(f"[INFO] Model '{model_name}' busy or unavailable on key #{k_idx}. Trying next model candidate...")
                     continue
+                # Quota exhausted or key suspended -> rotate key immediately
+                elif any(term in err_msg for term in ["429", "RESOURCE_EXHAUSTED", "quota", "403", "PERMISSION_DENIED", "SUSPENDED", "API_KEY_INVALID"]):
+                    print(f"[WARN] Key #{k_idx} ({active_key[:10]}...) quota/auth error on {model_name}. Rotating to next key in pool...")
+                    break
                 else:
                     print(f"[INFO] Model '{model_name}' on key #{k_idx} failed ({err_msg[:60]}...). Trying next candidate...")
                     continue
