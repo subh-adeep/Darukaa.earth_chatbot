@@ -1,0 +1,36 @@
+﻿# =====================================================
+# Darukaa.Earth — Root Requirements
+# =====================================================
+# Backend (Python) — core dependencies
+# Run: pip install -r requirements.txt
+# =====================================================
+
+# --- Web Framework & API ---
+fastapi>=0.110.0
+uvicorn>=0.28.0
+pydantic>=2.6.0
+
+# --- AI / LLM ---
+google-genai>=0.1.0
+groq>=0.9.0
+
+# --- Vector Search & Embeddings ---
+sentence-transformers>=2.5.0
+qdrant-client>=1.8.0
+rank-bm25>=0.2.2
+numpy>=1.26.0
+
+# --- Data Processing ---
+python-dotenv>=1.0.0
+
+# --- Streaming & HTTP ---
+httpx>=0.27.0
+requests>=2.31.0
+
+# --- Gradio (for Hugging Face Space deployment) ---
+gradio>=5.0.0
+
+# =====================================================
+# Frontend (Node.js) — install separately:
+#   cd project/frontend && npm install
+# =====================================================
